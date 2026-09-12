@@ -49,6 +49,10 @@ Vercel, an S3 bucket behind HTTPS) and open the URL in Safari or Chrome.
 - `js/capture.js` composes the before/after image and handles save/share
   (Web Share API with a download fallback).
 
+To self-host the MediaPipe runtime and model instead of using the CDN, define
+`window.FACE_SCULPT_ASSETS = { bundle, wasm, model }` with your own URLs before
+`js/app.js` loads (see the bottom of `index.html` for where it goes).
+
 ## Development
 
 ```sh

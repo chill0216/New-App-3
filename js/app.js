@@ -1,13 +1,19 @@
 // Main application: camera, face tracking, UI wiring and the render loop.
 
-import { FilesetResolver, FaceLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/vision_bundle.mjs';
 import { Renderer } from './renderer.js';
 import { TABS, DEFORMATIONS, BODY_FAT, ALL_SLIDER_IDS, faceFrame, applyDeformations } from './deformations.js';
 import { LANDMARK_COUNT } from './mesh-data.js';
 import { composeBeforeAfter, canvasToBlob, canShareFiles, shareFile, downloadBlob } from './capture.js';
 
-const WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm';
-const MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+// Where the MediaPipe runtime and model come from. A host page can self-host them by
+// defining window.FACE_SCULPT_ASSETS = { bundle, wasm, model } before this module runs.
+const CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1';
+const ASSETS = {
+  bundle: `${CDN}/vision_bundle.mjs`,
+  wasm: `${CDN}/wasm`,
+  model: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+  ...(window.FACE_SCULPT_ASSETS || {}),
+};
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -185,9 +191,10 @@ function bindControls() {
 // ---------------------------------------------------------------- camera + model
 
 async function loadLandmarker() {
-  const vision = await FilesetResolver.forVisionTasks(WASM_URL);
+  const { FilesetResolver, FaceLandmarker } = await import(ASSETS.bundle);
+  const vision = await FilesetResolver.forVisionTasks(ASSETS.wasm);
   const options = (delegate) => ({
-    baseOptions: { modelAssetPath: MODEL_URL, delegate },
+    baseOptions: { modelAssetPath: ASSETS.model, delegate },
     runningMode: 'VIDEO',
     numFaces: 1,
     outputFacialTransformationMatrixes: true,
