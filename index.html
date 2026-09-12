@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0b0b0f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Face Sculpt</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="app">
+    <section id="stage" class="stage">
+      <video id="cam" playsinline muted autoplay></video>
+      <canvas id="view"></canvas>
+
+      <div class="stage-top">
+        <div id="status" class="pill status" hidden></div>
+        <div id="viewToggle" class="segment" role="group" aria-label="Camera angle">
+          <button type="button" data-mode="front" class="active" aria-pressed="true">Front</button>
+          <button type="button" data-mode="side" aria-pressed="false">Side</button>
+        </div>
+      </div>
+
+      <div id="turnHint" class="pill turn-hint" hidden>
+        <span class="text">Turn your head about 45°</span>
+        <span class="turn-track"><span id="turnBar" class="turn-bar"></span></span>
+      </div>
+
+      <div class="stage-bottom">
+        <button id="holdBtn" type="button" class="hold" aria-pressed="false" title="Press and hold to see your unedited face">
+          Hold: original
+        </button>
+        <button id="shutterBtn" type="button" class="shutter" aria-label="Capture before and after"></button>
+        <button id="resetBtn" type="button" class="ghost">Reset</button>
+      </div>
+
+      <div id="intro" class="intro">
+        <div class="intro-card">
+          <h1>Face Sculpt</h1>
+          <p>A live mirror with sliders for your jaw, eyes, midface and nose. Everything runs on your phone; no video leaves the device.</p>
+          <button id="startBtn" type="button" class="primary">Allow camera</button>
+          <p id="introStatus" class="intro-status"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="controls">
+      <label class="slider body-fat">
+        <span class="slider-head"><span class="name">Body fat</span><span id="bodyFatValue" class="value">0</span></span>
+        <input id="bodyFat" type="range" min="-100" max="100" step="1" value="0">
+        <span class="slider-ends"><span>Leaner</span><span>Fuller</span></span>
+      </label>
+
+      <div id="tabs" class="tabs" role="tablist"></div>
+      <div id="sliders" class="sliders"></div>
+    </section>
+  </main>
+
+  <div id="result" class="result" hidden>
+    <div class="result-card">
+      <img id="resultImg" alt="Before and after">
+      <div class="result-actions">
+        <button id="saveBtn" type="button" class="primary">Save</button>
+        <button id="shareBtn" type="button" class="primary" hidden>Share</button>
+        <button id="closeResultBtn" type="button" class="ghost">Close</button>
+      </div>
+      <p class="result-note">On iPhone, use Share → Save Image if Save opens the picture in a new tab.</p>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
