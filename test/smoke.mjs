@@ -238,7 +238,7 @@ async function main() {
       for (const v of [-1, 1]) {
         await setSlider(page, id, v);
         await page.waitForTimeout(60);
-        const bad = await page.evaluate(() => Array.from(window.__faceSculpt.warped).some((x) => !Number.isFinite(x)));
+        const bad = await page.evaluate(() => [...window.__faceSculpt.warped, ...window.__faceSculpt.shade].some((x) => !Number.isFinite(x)));
         assert(!bad, `${id}=${v} produced finite positions`);
         await setSlider(page, id, 0);
       }

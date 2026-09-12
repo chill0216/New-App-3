@@ -3,6 +3,7 @@
 import { Renderer } from './renderer.js';
 import { TABS, DEFORMATIONS, BODY_FAT, ALL_SLIDER_IDS, faceFrame, applyDeformations } from './deformations.js';
 import { LANDMARK_COUNT } from './mesh-data.js';
+import { computeShade } from './shading.js';
 import { composeBeforeAfter, canvasToBlob, canShareFiles, shareFile, downloadBlob } from './capture.js';
 
 // Where the MediaPipe runtime and model come from. A host page can self-host them by
@@ -52,7 +53,8 @@ const state = {
   running: false,
   lastVideoTime: -1,
   base: new Float32Array(LANDMARK_COUNT * 3),
-  warped: new Float32Array(LANDMARK_COUNT * 2),
+  warped: new Float32Array(LANDMARK_COUNT * 3),
+  shade: new Float32Array(LANDMARK_COUNT),
   haveFace: false,
   frame: null,
   matrix: null,
@@ -278,9 +280,10 @@ function render(edited) {
   const r = state.renderer;
   if (edited && state.haveFace) {
     applyDeformations(state.base, state.frame, state.values, state.mode, state.warped);
-    r.draw(state.base, state.warped, state.frame);
+    computeShade(state.base, state.warped, state.shade);
+    r.draw(state.base, state.warped, state.frame, state.shade);
   } else {
-    r.draw(null, null, null);
+    r.draw(null, null, null, null);
   }
 }
 

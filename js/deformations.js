@@ -2,12 +2,13 @@
 //
 // Every slider is a "deformation". Each frame we build a face-local frame from the
 // detected landmarks (centre, up vector, right vector, scale, forward direction) and
-// accumulate a 2-D displacement for every landmark from all non-zero sliders.
+// accumulate a 3-D displacement for every landmark from all non-zero sliders.
 //
 // Handle-based deformations list a few landmarks with a direction expressed in the
 // face frame: `lat` (outward from the midline), `up` (toward the forehead) and `fwd`
-// (along the direction the face points, which projects to almost nothing when the
-// face is seen head-on and to a lateral screen vector when the head is turned).
+// (along the direction the face points). Head-on, `fwd` moves points in depth only,
+// which the relighting in shading.js turns into light and shadow; as the head turns
+// it also becomes a visible shift across the screen.
 // Every other landmark follows the handles with a Gaussian falloff, so the whole
 // region moves coherently instead of just a few points.
 
@@ -36,9 +37,9 @@ export const DEFORMATIONS = [
   {
     id: 'jawAngle', tab: 'jaw', label: 'Jaw angle', kind: 'handles', max: 0.06, radius: 0.16,
     handles: [
-      ...P(58, 288, 1.0, -0.3), ...P(172, 397, 0.85, -0.2), ...P(132, 361, 0.55, -0.2),
-      ...P(136, 365, 0.55, -0.1), ...P(215, 435, 0.5, -0.15), ...P(138, 367, 0.4, -0.1),
-      ...P(213, 433, 0.35, -0.1), ...P(93, 323, 0.25, -0.1),
+      ...P(58, 288, 1.0, -0.3, 0.3), ...P(172, 397, 0.85, -0.2, 0.3), ...P(132, 361, 0.55, -0.2, 0.2),
+      ...P(136, 365, 0.55, -0.1, 0.3), ...P(215, 435, 0.5, -0.15, 0.2), ...P(138, 367, 0.4, -0.1, 0.2),
+      ...P(213, 433, 0.35, -0.1, 0.1), ...P(93, 323, 0.25, -0.1, 0.1),
     ],
   },
   {
@@ -100,18 +101,20 @@ export const DEFORMATIONS = [
   {
     id: 'cheekbones', tab: 'midface', label: 'Cheekbones', kind: 'handles', max: 0.05, radius: 0.12,
     handles: [
-      ...P(116, 345, 1.0, 0.3), ...P(117, 346, 0.9, 0.3), ...P(118, 347, 0.7, 0.3),
-      ...P(123, 352, 0.9, 0.2), ...P(111, 340, 0.9, 0.3), ...P(50, 280, 0.6, 0.3),
-      ...P(101, 330, 0.4, 0.3), ...P(147, 376, 0.6, 0.1), ...P(227, 447, 0.8, 0.2),
-      ...P(137, 366, 0.6, 0.1), ...P(234, 454, 0.4, 0), ...P(93, 323, 0.5, 0), ...P(127, 356, 0.4, 0.1),
+      ...P(116, 345, 1.0, 0.3, 0.7), ...P(117, 346, 0.9, 0.3, 0.8), ...P(118, 347, 0.7, 0.3, 0.7),
+      ...P(123, 352, 0.9, 0.2, 0.5), ...P(111, 340, 0.9, 0.3, 0.6), ...P(50, 280, 0.6, 0.3, 0.6),
+      ...P(101, 330, 0.4, 0.3, 0.4), ...P(147, 376, 0.6, 0.1, 0.3), ...P(227, 447, 0.8, 0.2, 0.3),
+      ...P(137, 366, 0.6, 0.1, 0.2), ...P(234, 454, 0.4, 0, 0), ...P(93, 323, 0.5, 0, 0.1),
+      ...P(127, 356, 0.4, 0.1, 0.1),
     ],
   },
   {
     id: 'cheekHollow', tab: 'midface', label: 'Cheek hollow', kind: 'handles', max: 0.05, radius: 0.1,
     handles: [
-      ...P(205, 425, -1.0), ...P(207, 427, -0.9), ...P(187, 411, -0.8), ...P(147, 376, -0.6),
-      ...P(192, 416, -0.6), ...P(213, 433, -0.6), ...P(215, 435, -0.5), ...P(138, 367, -0.5),
-      ...P(123, 352, -0.4), ...P(50, 280, -0.5), ...P(206, 426, -0.5), ...P(216, 436, -0.5),
+      ...P(205, 425, -0.6, 0, -1.0), ...P(207, 427, -0.5, 0, -0.9), ...P(187, 411, -0.5, 0, -0.8),
+      ...P(147, 376, -0.4, 0, -0.5), ...P(192, 416, -0.4, 0, -0.6), ...P(213, 433, -0.4, 0, -0.5),
+      ...P(215, 435, -0.3, 0, -0.4), ...P(138, 367, -0.3, 0, -0.4), ...P(123, 352, -0.2, 0, -0.3),
+      ...P(50, 280, -0.3, 0, -0.5), ...P(206, 426, -0.3, 0, -0.6), ...P(216, 436, -0.3, 0, -0.5),
     ],
   },
   {
@@ -203,24 +206,29 @@ export function faceFrame(pts, matrix) {
 
   // Forward direction projected onto the screen. Prefer the head-pose matrix;
   // fall back to the nose-vs-ear offset.
+  // Forward axis of the face in landmark space (x right, y down, z into the screen,
+  // so a face looking straight at the camera has forward = (0, 0, -1)).
   let fx;
   let fy;
+  let fz;
   if (matrix && matrix.length === 16) {
     // Column-major; the third column is the face's forward axis in camera space.
-    // Camera y is up, image y is down.
+    // Camera y is up and z points at the viewer; landmark y is down and z away.
     fx = matrix[8];
     fy = -matrix[9];
+    fz = -matrix[10];
   } else {
     const nose = g(1);
-    fx = (nose[0] - (earR[0] + earL[0]) / 2) / scale * 1.6;
+    fx = Math.max(-1, Math.min(1, ((nose[0] - (earR[0] + earL[0]) / 2) / scale) * 1.6));
     fy = 0;
+    fz = -Math.sqrt(Math.max(0, 1 - fx * fx));
   }
   const yaw = Math.abs(fx);
 
   const eyeY = (pts[RIGHT_IRIS * 3 + 1] + pts[LEFT_IRIS * 3 + 1]) / 2;
   const eyeX = (pts[RIGHT_IRIS * 3] + pts[LEFT_IRIS * 3]) / 2;
 
-  return { cx, cy, ux, uy, rx, ry, scale, fx, fy, yaw, eyeX, eyeY, chinX: chin[0], chinY: chin[1] };
+  return { cx, cy, ux, uy, rx, ry, scale, fx, fy, fz, yaw, eyeX, eyeY, chinX: chin[0], chinY: chin[1] };
 }
 
 /**
@@ -229,21 +237,22 @@ export function faceFrame(pts, matrix) {
  * @param {object} frame       result of faceFrame()
  * @param {Object<string, number>} values  slider values in [-1, 1] keyed by id
  * @param {'front'|'side'} mode
- * @param {Float32Array} out   receives x,y pairs for LANDMARK_COUNT points
+ * @param {Float32Array} out   receives x,y,z triples for LANDMARK_COUNT points
  */
 export function applyDeformations(pts, frame, values, mode, out) {
   const n = LANDMARK_COUNT;
-  for (let i = 0; i < n; i++) {
-    out[i * 2] = pts[i * 3];
-    out[i * 2 + 1] = pts[i * 3 + 1];
-  }
-  const { ux, uy, rx, ry, scale, fx, fy } = frame;
+  out.set(pts.subarray(0, n * 3));
+  const { ux, uy, rx, ry, scale, fx, fy, fz } = frame;
   const yawFull = mode === 'side' ? YAW_FULL_SIDE : YAW_FULL_FRONT;
   // Screen-space vector for "forward" handles, saturating at full turn.
   const gain = Math.min(1, Math.hypot(fx, fy) / yawFull);
   const flen = Math.hypot(fx, fy) || 1;
+  // On screen the forward handles move along the projected forward axis, saturating
+  // once the head is turned enough. In depth they always move along the true axis, so
+  // a head-on face still gets the relighting even though nothing shifts in 2-D.
   const fwdX = (fx / flen) * gain;
   const fwdY = (fy / flen) * gain;
+  const fwdZ = fz;
   // Lateral (width) changes read wrongly on a turned head, so fade them out.
   const latGain = 1 - 0.75 * Math.min(1, Math.abs(fx) / 0.7);
 
@@ -262,6 +271,7 @@ export function applyDeformations(pts, frame, values, mode, out) {
       const hy = new Float32Array(hn);
       const vx = new Float32Array(hn);
       const vy = new Float32Array(hn);
+      const vz = new Float32Array(hn);
       for (let h = 0; h < hn; h++) {
         const H = hs[h];
         hx[h] = pts[H.i * 3];
@@ -269,6 +279,7 @@ export function applyDeformations(pts, frame, values, mode, out) {
         const lat = H.lat * H.side * latGain;
         vx[h] = amp * (lat * rx + H.up * ux + H.fwd * fwdX);
         vy[h] = amp * (lat * ry + H.up * uy + H.fwd * fwdY);
+        vz[h] = amp * H.fwd * fwdZ;
       }
       for (let i = 0; i < n; i++) {
         const px = pts[i * 3];
@@ -276,6 +287,7 @@ export function applyDeformations(pts, frame, values, mode, out) {
         let wsum = 0;
         let dx = 0;
         let dy = 0;
+        let dz = 0;
         for (let h = 0; h < hn; h++) {
           const ex = px - hx[h];
           const ey = py - hy[h];
@@ -284,12 +296,14 @@ export function applyDeformations(pts, frame, values, mode, out) {
           wsum += w;
           dx += w * vx[h];
           dy += w * vy[h];
+          dz += w * vz[h];
         }
         if (wsum > 0) {
           // Shepard-style blend of handle vectors, scaled by how close we are to any handle.
           const k = Math.min(1, wsum) / wsum;
-          out[i * 2] += dx * k;
-          out[i * 2 + 1] += dy * k;
+          out[i * 3] += dx * k;
+          out[i * 3 + 1] += dy * k;
+          out[i * 3 + 2] += dz * k;
         }
       }
     } else if (d.kind === 'scale') {
@@ -310,11 +324,11 @@ export function applyDeformations(pts, frame, values, mode, out) {
           if (w < 1e-4) continue;
           if (d.axis === 'up') {
             const t = ex * ux + ey * uy;
-            out[i * 2] += s * w * t * ux;
-            out[i * 2 + 1] += s * w * t * uy;
+            out[i * 3] += s * w * t * ux;
+            out[i * 3 + 1] += s * w * t * uy;
           } else {
-            out[i * 2] += s * w * ex;
-            out[i * 2 + 1] += s * w * ey;
+            out[i * 3] += s * w * ex;
+            out[i * 3 + 1] += s * w * ey;
           }
         }
       }
@@ -339,8 +353,8 @@ export function applyDeformations(pts, frame, values, mode, out) {
           const ey = pts[i * 3 + 1] - cy;
           const w = Math.exp(-(ex * ex + ey * ey) * inv);
           if (w < 1e-4) continue;
-          out[i * 2] += vx * w;
-          out[i * 2 + 1] += vy * w;
+          out[i * 3] += vx * w;
+          out[i * 3 + 1] += vy * w;
         }
       }
     }
@@ -359,12 +373,16 @@ export function applyDeformations(pts, frame, values, mode, out) {
       const t = Math.max(0, Math.min(1, down));
       const w = 0.12 + 0.88 * t * t;
       const lateral = (px - cx) * rx + (py - cy) * ry;
-      out[i * 2] += s * w * lateral * rx;
-      out[i * 2 + 1] += s * w * lateral * ry;
+      out[i * 3] += s * w * lateral * rx;
+      out[i * 3 + 1] += s * w * lateral * ry;
       // A fuller face also carries a slightly heavier, lower chin and jowls.
       const sag = s * 0.25 * t * t * scale * 0.5;
-      out[i * 2] += -sag * ux;
-      out[i * 2 + 1] += -sag * uy;
+      out[i * 3] += -sag * ux;
+      out[i * 3 + 1] += -sag * uy;
+      // Volume: a fuller lower face bulges toward the camera in its middle and falls
+      // away at the outline, which is what the relighting picks up as softness.
+      const rim = Math.min(1, Math.abs(lateral) / (0.5 * scale));
+      out[i * 3 + 2] += s * w * 0.35 * scale * (1 - rim * rim) * fz;
     }
   }
 }
